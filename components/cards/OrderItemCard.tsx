@@ -1,10 +1,8 @@
-import MinusIcon from '@/assets/svg/cart/MinusIcon';
-import PlusIcon from '@/assets/svg/cart/PlusIcon';
 import { useAuth } from '@/context/AuthContext';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
 interface OrderItemCardProps {
     _id: string;
@@ -89,14 +87,8 @@ const handleAddToCart = async () => {
             </View>
         </View>
       </View>
-      <View style={{paddingVertical: 6, paddingHorizontal: 10, backgroundColor: "#F4F4F4", borderRadius: 40, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 17}}>
-            <TouchableOpacity>
-                <MinusIcon/>
-            </TouchableOpacity>
+      <View style={{paddingVertical: 6, paddingHorizontal: 30, backgroundColor: "#F4F4F4", borderRadius: 40, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 17}}>
             <Text>1</Text>
-            <TouchableOpacity>
-                <PlusIcon/>
-            </TouchableOpacity>
       </View>
     </View>
   )

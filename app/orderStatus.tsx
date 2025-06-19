@@ -1,20 +1,17 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, View } from 'react-native';
 
-import BackIcon from '@/assets/svg/BackIcon';
-import Header from '@/components/Header';
-import { useAuth } from '@/context/AuthContext';
-import { router } from 'expo-router';
-import React, { useEffect } from 'react';
-
-import CurierIcon from '@/assets/svg/CurierIcon';
 import GradientButton from '@/components/ui/GradientButton';
+import { useAuth } from '@/context/AuthContext';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useEffect } from 'react';
+import MapView, { Marker } from 'react-native-maps';
 import Svg, {
-    Defs,
-    G,
-    LinearGradient,
-    Path,
-    Rect,
-    Stop,
+  Defs,
+  G,
+  LinearGradient,
+  Path,
+  Rect,
+  Stop,
 } from "react-native-svg";
 /* SVGR has dropped some elements not supported by react-native-svg: filter */
 const Stage1 = (props: any) => (
@@ -235,127 +232,215 @@ export default function CartScreen() {
   const [error, setError] = React.useState('');
   const [cart, setCart] = React.useState<any[]>([]);
 
+  const [order, setOrder] = React.useState<any>(null);
+  const {data} = useLocalSearchParams();
+  const parsedData = JSON.parse(data as string);
   const [stage, setStage] = React.useState(1);
 
-  const fetchCart = async () => {
-    if (!user?._id) return;
-    setLoading(true);
-    setError('');
+  const fetchOrder = async () => {
+    const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/orders/${parsedData.orderId}`);
+    const data = await res.json();
+    console.log(data);
+    setOrder(data);
+  };
+
+  useEffect(() => {
+    fetchOrder();
+  }, [parsedData.orderId]);
+
+  const handleTakeOrder = async () => {
     try {
-      const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/cart/${user._id}`);
-      if (!res.ok) throw new Error('Не вдалося завантажити корзину');
-      const data = await res.json();
-      console.log(data);
-      setCart(data.items || []);
-    } catch (e) {
-      setError('Не вдалося завантажити корзину');
+      setLoading(true);
+      const res = await fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}/orders/${parsedData.orderId}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: "delivery" }),
+        }
+      );
+      if (!res.ok) throw new Error("Не удалось обновить статус");
+      const updatedOrder = await res.json();
+      setOrder(updatedOrder);
+      setStage(2); // если нужно поменять стадию
+    } catch (e: any) {
+      setError(e.message || "Ошибка");
     } finally {
       setLoading(false);
     }
-  };
+  }
+  const handleFinishOrder = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}/orders/${parsedData.orderId}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: "finish" }),
+        }
+      );
+      if (!res.ok) throw new Error("Не удалось обновить статус");
+      const updatedOrder = await res.json();
+      // setOrder(updatedOrder);
+      router.replace("/")
+      // setStage(2); // если нужно поменять стадию
+    } catch (e: any) {
+      console.log(e)
+      setError(e.message || "Ошибка");
+    } finally {
+      setLoading(false);
+    }
+  }
   
-  useEffect(() => {
-    const timer1 = setTimeout(() => {
-      setStage(2);
-      console.log("first stage done");
-      const timer2 = setTimeout(() => {
-        setStage(3);
-        console.log("second stage done");
-      }, 2000); // Stage2 держится 10 секунд
-      return () => clearTimeout(timer2);
-    }, 2000); // Stage1 держится 10 секунд
+  // useEffect(() => {
+  //   const timer1 = setTimeout(() => {
+  //     setStage(2);
+  //     console.log("first stage done");
+  //     const timer2 = setTimeout(() => {
+  //       setStage(3);
+  //       console.log("second stage done");
+  //     }, 2000); // Stage2 держится 10 секунд
+  //     return () => clearTimeout(timer2);
+  //   }, 2000); // Stage1 держится 10 секунд
 
-    return () => clearTimeout(timer1);
-  }, []);
+  //   return () => clearTimeout(timer1);
+  // }, []);
   
   return (
-     <View style={{backgroundColor: "white", flex: 1}}>
-        <Header
-            title="Статус"
-            titleStyle={{
-                fontWeight: 700,}}
-            leftContent={<BackIcon />}
-            onLeftPress={() => router.back()}
-        />
-      <View style={{paddingTop: 100, paddingHorizontal: 20}}>
-            <Text style={{marginTop: 30, fontWeight: 700, textAlign: "center", color: "#A7A7A7"}}>Час очікування</Text>
-            <Text style={{marginBottom: 30, fontWeight: 700, textAlign: "center", color: "#000"}}>14:35-14:50</Text>
-
-            {
-                stage === 1 && <Stage1 style={{alignSelf: "center"}}/>
-            }
-            {
-                stage === 2 && <Stage2 style={{alignSelf: "center"}}/>
-            }
-            {
-                stage === 3 && <Stage3 style={{alignSelf: "center"}}/>
-            }
-            
-            
-            <Text style={{marginVertical: 30, width: "60%", alignSelf: "center", fontWeight: 700, textAlign: "center", fontSize: 20}}>
-                {
-                    stage === 1 && "Пошук кур’єра"
-                }
-                {
-                    stage === 2 && "Кур’єр забирає замовлення"
-                }
-                {
-                    stage === 3 && "Кур’єр доставляє замовлення"
-                }
-            </Text>
-            
-      </View>
+     <View style={styles.container}>
+      <MapView
+        style={styles.map}
+        initialRegion={{
+          latitude: 48.464717,
+          longitude: 35.046183,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        }}
+        showsUserLocation
+      >
+        {/* {!loading && pharmacies.map(pharmacy => (
+          <Marker
+            key={pharmacy._id}
+            coordinate={{
+              latitude: pharmacy.coordinates.lat,
+              longitude: pharmacy.coordinates.lng,
+            }}
+            title={pharmacy.name}
+            image={{ uri: pharmacy.image }}
+            onPress={() => router.push(`/pharmacy/${pharmacy._id}`)}
+          />
+        ))} */}
+        {!loading && order?.items?.map((item: any, idx: number) => {
+        const pharmacy = item?.pharmacyProduct?.pharmacy;
+        if (!pharmacy?.coordinates) return null;
+        return (
+          <Marker
+            key={pharmacy._id || idx}
+            coordinate={{
+              latitude: pharmacy.coordinates.lat,
+              longitude: pharmacy.coordinates.lng,
+            }}
+            title={pharmacy.name}
+            image={{ uri: pharmacy.image }} // если есть картинка
+          />
+        );
+      })}
+      </MapView>
       {
-        stage === 1 &&
-       <GradientButton title="Відхилити замовлення" style={{width: "95%", backgroundColor: "#E52020", position: "absolute", alignSelf: "center", bottom: 50}} onPress={() => router.back()}/>
+        stage === 1 && (
+          <View style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 300,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            backgroundColor: 'white',
+            padding: 16,
+          }}>
+            <Text style={{
+              fontSize: 20,
+              fontWeight: 'bold',
+              textAlign: 'center',
+            }}>
+              Заберіть замовлення з аптеки
+            </Text>
+            <Text style={{
+              fontSize: 15,
+              fontWeight: 'regular',
+              marginTop: 20,
+              textAlign: 'center',
+            }}>
+              Щоб почати доставку, вам потрібно отримати замовлення з аптеки
+            </Text>
+            <GradientButton
+            title={loading ? "Приймаємо..." : "Почати доставку"}
+            style={{width: "95%", position: "absolute", alignSelf: "center", bottom: 50}}
+            onPress={handleTakeOrder}
+            disabled={loading}
+          />
+          </View>
+        )
       }
       {
         stage === 2 && (
-            <View style={{
-                paddingHorizontal: 20,
-            }}>
+          <View style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 300,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            backgroundColor: 'white',
+            padding: 16,
+          }}>
             <Text style={{
-                fontWeight: 700,
-                fontSize: 28,
-                
-
-            }}>Ваш кур’єр</Text>
-            <View style={{
-                backgroundColor: "white",
-                elevation: 2,
-                borderRadius: 12,
+              fontSize: 20,
+              fontWeight: 'bold',
+              textAlign: 'center',
             }}>
-                <CurierIcon/>
-            </View>
-            </View>
-        )
-      }
-      {
-        stage === 3 && (
-            <View style={{
-                paddingHorizontal: 20,
-            }}>
+              Доставка почалась!
+            </Text>
             <Text style={{
-                fontWeight: 700,
-                fontSize: 28,
-                
-
-            }}>Ваш кур’єр</Text>
-            <View style={{
-                backgroundColor: "white",
-                elevation: 2,
-                borderRadius: 12,
+              fontSize: 15,
+              fontWeight: 'regular',
+              marginTop: 20,
+              textAlign: 'center',
             }}>
-                <CurierIcon/>
-            </View>
-            </View>
+              Вам потрібно доїхати до пункту призначення щоб доставити ліки
+            </Text>
+            <GradientButton
+            title={"Завершити доставку"}
+            style={{width: "95%", position: "absolute", alignSelf: "center", bottom: 50}}
+            onPress={handleFinishOrder}
+            disabled={loading}
+          />
+          </View>
         )
+
       }
+      
+      {/* <SearchButton
+        activeOpacity={0.9}
+        onPress={() => router.push('/search')}
+      /> */}
     </View>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
+  container: { flex: 1 },
+  map: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
+  },
   headerImage: {
     color: '#808080',
     bottom: -90,

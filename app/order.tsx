@@ -51,14 +51,14 @@ export default function CartScreen() {
     try {
       setLoading(true);
       setError('');
+      console.log(user?._id, user?.token);
       const res = await fetch(
         `${process.env.EXPO_PUBLIC_API_URL}/orders/${order._id}/take`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            // Добавьте авторизацію, якщо потрібно:
-            // Authorization: `Bearer ${user.token}`,
+            Authorization: `Bearer ${user?.token}`,
           },
           body: JSON.stringify({ courierId: user?._id }),
         }
@@ -69,9 +69,12 @@ export default function CartScreen() {
         setLoading(false);
         return;
       }
-      const updatedOrder = await res.json();
-      setOrder(updatedOrder);
-      router.push("/orderStatus");
+      // const updatedOrder = await res.json();
+      // setOrder(updatedOrder);
+      router.push({
+        pathname: "/orderStatus",
+        params: { data: JSON.stringify({orderId: order._id}) },
+      });
     } catch (err) {
       setError('Сталася помилка');
       setLoading(false);
@@ -87,7 +90,7 @@ export default function CartScreen() {
   return (
      <View style={{backgroundColor: "white", flex: 1}}>
         <Header
-            title="Ваше замовлення"
+            title="Замовлення"
             titleStyle={{
                 fontWeight: 700,}}
             leftContent={<BackIcon />}

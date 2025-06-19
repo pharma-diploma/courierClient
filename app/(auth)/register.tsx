@@ -45,6 +45,7 @@ const register = () => {
               body: JSON.stringify({
                 email,
                 password,
+                role: "courier",
               }),
             }
         );
